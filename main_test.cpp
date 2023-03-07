@@ -6,7 +6,7 @@
 namespace {
 
     // Example from paper
-    const std::vector<std::vector<bool> > TEST_MATRIX = {
+    const std::vector<std::vector<char> > TEST_MATRIX = {
         {0,1,0,0,1,1,0,0,0,1},
         {1,1,1,0,0,0,1,1,1,0},
         {1,0,0,1,1,1,1,0,0,1},
@@ -51,10 +51,10 @@ namespace {
 
         // Check if a arrays are same
         for(size_t i = 0; i < result_seq.size(); ++i) {
-            //print_vector(result_seq[i].a);
-            //print_vector(result_seq[i].d);
-            //print_vector(result_par[i].a);
-            //print_vector(result_par[i].d);
+            // print_vector(result_seq[i].a);
+            // print_vector(result_seq[i].d);
+            // print_vector(result_par[i].a);
+            // print_vector(result_par[i].d);
             check_vectors(result_seq[i].a, result_par[i].a);
         }
 
@@ -68,7 +68,8 @@ namespace {
     TEST(PBWT, CheckIfFirstPositionIsOK) {
         const size_t THREADS = 4;
 
-        auto hap_map = read_from_macs_file<bool>("11k.macs"); // TODO CHANGE FILE
+        //auto hap_map = read_from_macs_file<char>("11k.macs"); // TODO CHANGE FILE
+        auto hap_map = read_from_bcf_file("data.bcf");
         const size_t N = hap_map.size(); // Number of variant sites
         auto positions_to_collect = generate_positions_to_collect(N, THREADS);
 
@@ -93,7 +94,8 @@ namespace {
     TEST(PBWT, CheckIfSequentialAndParallelADAreSame) {
         const size_t THREADS = 4; /// @todo range
 
-        auto hap_map = read_from_macs_file<bool>("11k.macs"); // TODO CHANGE FILE
+        //auto hap_map = read_from_macs_file<char>("11k.macs"); // TODO CHANGE FILE
+        auto hap_map = read_from_bcf_file("data.bcf");
         auto positions_to_collect = generate_positions_to_collect(hap_map.size(), THREADS);
 
         std::vector<a_d_arrays_at_pos> result_seq;

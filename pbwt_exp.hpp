@@ -8,6 +8,7 @@
 #include <thread>
 #include <mutex>
 #include <algorithm>
+using std::cout;
 
 #include "synced_bcf_reader.h"
 
@@ -36,7 +37,7 @@ void print_differences(const std::vector<T>& v1, const std::vector<T>& v2) {
     }
 }
 
-template<typename T = bool, const bool VERBOSE = false>
+template<typename T = char, const bool VERBOSE = false>
 std::vector<std::vector<T> > read_from_macs_file(const std::string& filename) {
     T conv[256];
     /// @todo conversion for more than 2 alleles
@@ -116,7 +117,7 @@ std::vector<std::vector<T> > read_from_macs_file(const std::string& filename) {
     }
 }
 
-template <typename T = bool>
+template <typename T = char>
 std::vector<std::vector<T> > read_from_bcf_file(const std::string& filename, size_t max_m = 0, size_t max_n = 0) {
     std::vector<std::vector<T> > hap_map;
 
@@ -185,8 +186,8 @@ typedef struct a_d_arrays_at_pos {
     d_t d;
 } a_d_arrays_at_pos;
 
-using hap_map_t = std::vector<std::vector<bool> >;
-//using hap_map_t = HapMapStdVector<bool>; // Do not use ! Slow
+using hap_map_t = std::vector<std::vector<char> >;
+//using hap_map_t = HapMapStdVector<char>; // Do not use ! Slow
 
 template <const bool VERIFY = false>
 inline void fill_rppa(ppa_t& rppa, const ppa_t& ppa) {
@@ -214,7 +215,7 @@ using matches_t = std::vector<match_t>;
 static matches_t __place_holder__; // Trick to still use reference even with no parameter
 
 // Algorithm 2 in Durbin 2014
-inline void algorithm_2_BuildPrefixAndDivergenceArrays(const std::vector<bool>& x, const size_t& k, ppa_t& a, ppa_t& b, d_t& d, d_t& e) {
+inline void algorithm_2_BuildPrefixAndDivergenceArrays(const std::vector<char>& x, const size_t& k, ppa_t& a, ppa_t& b, d_t& d, d_t& e) {
     const size_t M = x.size();
     size_t u = 0, v = 0, p = k+1, q = k+1;
 
@@ -235,7 +236,7 @@ inline void algorithm_2_BuildPrefixAndDivergenceArrays(const std::vector<bool>& 
 
 // Algorithm 3 in Durbin 2014
 inline
-void algorithm_3_ReportLongMatches(const std::vector<bool>& x, const size_t N, const size_t& k, const size_t& L, const ppa_t& a, d_t& d, size_t& i0, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
+void algorithm_3_ReportLongMatches(const std::vector<char>& x, const size_t N, const size_t& k, const size_t& L, const ppa_t& a, d_t& d, size_t& i0, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
     size_t u = 0;
     size_t v = 0;
     size_t ia = 0;
@@ -272,7 +273,7 @@ void algorithm_3_ReportLongMatches(const std::vector<bool>& x, const size_t N, c
 
 // Algorithm 4 in Durbin 2014
 inline
-void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_t N, const size_t& k, const ppa_t& a, d_t& d, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
+void algorithm_4_ReportSetMaximalMatches(const std::vector<char>& x, const size_t N, const size_t& k, const ppa_t& a, d_t& d, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
     // Sentinels
     d[0] = k+1;
     d.push_back(k+1);
@@ -355,7 +356,7 @@ inline
 void algorithm_5_UpdateZmatches(const hap_map_t& hap_map, const size_t N, const size_t& k,
     const a_d_arrays_at_pos& ads, const a_d_arrays_at_pos& nads,
     size_t& e, size_t& f, size_t& g,
-    const std::vector<bool>& query, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
+    const std::vector<char>& query, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
     /* requires to build the u arrays, as well as the cc array of c's (number of 0s in y) */
 
     // Create u's if non existing (equiv to FM-index), the evolution of u over creation of a
@@ -610,6 +611,104 @@ std::vector<size_t> generate_positions_to_collect(const size_t N, const size_t T
     return positions_to_collect;
 }
 
+// std::vector<a_d_arrays_at_pos> generate_a_d_arrays_for_positions_sequentially(const hap_map_t& hap_map, const std::vector<size_t>& positions) {
+//     std::vector<a_d_arrays_at_pos> a_d_arrays;
+
+//     if (positions.empty()) return a_d_arrays;
+
+//     const size_t N = hap_map.size(); // Number of variant sites to process
+//     const size_t M = hap_map[0].size(); // Number of haplotypes
+//     ppa_t a(M), b(M);
+//     std::iota(a.begin(), a.end(), 0);
+//     d_t d(M, 0), e(M);
+
+//     auto pos_iterator = positions.begin();
+
+//     // Traverse variant sites of hap_map (returns when all requested positions have been collected)
+//     for (size_t k = 0; k < N; ++k) {
+//         if (pos_iterator == positions.end()) { // If all positions have been generated break
+//             return a_d_arrays;
+//         } else {
+//             if (*pos_iterator == k) { // If we want to collect the a and d arrays at position k
+//                 a_d_arrays.push_back({k, a, d});
+//                 pos_iterator++;
+//             }
+//         }
+
+//         // Apply algorithm 2 at position k to generate the next a and d arrays
+//         algorithm_2_BuildPrefixAndDivergenceArrays(hap_map[k], k, a, b, d, e);
+//     }
+
+//     // If the final is requested (used for examples and test, in other cases the function returns earlier)
+//     if (*pos_iterator == N) {
+//         a_d_arrays.push_back({N, a, d});
+//         pos_iterator++; // Not necessary
+//     }
+
+//     return a_d_arrays;
+// }
+
+//---------------
+//---------------
+//---------------
+template <typename index_t = size_t>
+inline void algorithm_2_BuildPrefixAndDivergenceArrays_faster(
+   const index_t M, const index_t N, const uint32_t k,
+   const std::vector<char>& x,
+   ppa_t* __restrict__ a, d_t* __restrict__ d, bool flag, index_t& midpoint
+)
+{
+  index_t u = 0, v = 0, p = k + 1, q = k + 1;
+
+  for (index_t i = 0; i < midpoint; i++) {
+    //cout << a[flag][i] << "-";
+    p = std::max(p, d[flag][i]);
+    q = std::max(q, d[flag][i]);
+
+    if (x[a[flag][i]] == 0) {
+      a[!flag][u] = a[flag][i];
+      d[!flag][u] = p;
+      u++;
+      p = 0;
+    } else {
+      a[!flag][M - 1 - v] = a[flag][i];
+      d[!flag][M - 1 - v] = q;
+      v++;
+      q = 0;
+    }
+  }
+ 
+  for (index_t i = M - 1; i >= midpoint; i--) {
+    //cout << a[flag][i] << "-";
+    p = std::max(p, d[flag][i]);
+    q = std::max(q, d[flag][i]);
+   
+    if (x[a[flag][i]] == 0) {
+      a[!flag][u] = a[flag][i];
+      d[!flag][u] = p;
+      u++;
+      p = 0;
+    } else {
+      a[!flag][M - 1 - v] = a[flag][i];
+      d[!flag][M - 1 - v] = q;
+      v++;
+      q = 0;
+    }
+  }
+  //cout << "\n";
+
+  midpoint = u;
+//   cout << "logging\n";
+//   cout << "midpoint = " << midpoint << "\n";
+//   cout << "a = ";
+//   for (int i = 0; i < N; i++) cout << a[!flag][i] << " ";
+//   cout << "\n";
+//   cout << "d = ";
+//   for (int i = 0; i < N; i++) cout << d[!flag][i] << " ";
+//   cout << "\n";
+//   cout << "--------\n";
+}
+
 std::vector<a_d_arrays_at_pos> generate_a_d_arrays_for_positions_sequentially(const hap_map_t& hap_map, const std::vector<size_t>& positions) {
     std::vector<a_d_arrays_at_pos> a_d_arrays;
 
@@ -617,30 +716,57 @@ std::vector<a_d_arrays_at_pos> generate_a_d_arrays_for_positions_sequentially(co
 
     const size_t N = hap_map.size(); // Number of variant sites to process
     const size_t M = hap_map[0].size(); // Number of haplotypes
-    ppa_t a(M), b(M);
-    std::iota(a.begin(), a.end(), 0);
-    d_t d(M, 0), e(M);
+
+    ppa_t a[2];
+    a[0].resize(M);
+    std::iota(a[0].begin(), a[0].end(), 0);
+    a[1].resize(M, 0);
+
+    d_t d[2];
+    d[0].resize(M, 0);
+    d[1].resize(M, 0);
+
+    bool flag = 0;
+    size_t midpoint = M;
+    size_t prev_midpoint;
 
     auto pos_iterator = positions.begin();
 
     // Traverse variant sites of hap_map (returns when all requested positions have been collected)
     for (size_t k = 0; k < N; ++k) {
+        bool add_position = false;
         if (pos_iterator == positions.end()) { // If all positions have been generated break
             return a_d_arrays;
         } else {
-            if (*pos_iterator == k) { // If we want to collect the a and d arrays at position k
-                a_d_arrays.push_back({k, a, d});
-                pos_iterator++;
+            if (*pos_iterator == k) {
+                add_position = true;
+                prev_midpoint = midpoint;
             }
         }
 
         // Apply algorithm 2 at position k to generate the next a and d arrays
-        algorithm_2_BuildPrefixAndDivergenceArrays(hap_map[k], k, a, b, d, e);
+        algorithm_2_BuildPrefixAndDivergenceArrays_faster(M, N, k, hap_map[k], a, d, flag, midpoint);
+        if (add_position) {
+            size_t mid_right = (M + prev_midpoint) / 2 - prev_midpoint;
+            for (size_t i = 0; i < mid_right; i++) {
+                std::swap(a[flag][prev_midpoint + i], a[flag][M - 1 - i]);
+                std::swap(d[flag][prev_midpoint + i], d[flag][M - 1 - i]);
+            }
+            a_d_arrays.push_back({k, a[flag], d[flag]});
+            pos_iterator++;
+        }
+        flag ^= 1;
     }
 
     // If the final is requested (used for examples and test, in other cases the function returns earlier)
     if (*pos_iterator == N) {
-        a_d_arrays.push_back({N, a, d});
+        size_t prev_midpoint = midpoint;
+        size_t mid_right = (M + prev_midpoint) / 2 - prev_midpoint;
+        for (size_t i = 0; i < mid_right; i++) {
+            std::swap(a[flag][prev_midpoint + i], a[flag][M - 1 - i]);
+            std::swap(d[flag][prev_midpoint + i], d[flag][M - 1 - i]);
+        }
+        a_d_arrays.push_back({N, a[flag], d[flag]});
         pos_iterator++; // Not necessary
     }
 
